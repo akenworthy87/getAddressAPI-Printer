@@ -2,6 +2,7 @@ import os
 from pymongo import MongoClient
 import requests
 from datetime import datetime
+import re
 
 # These Envars are crucical to function, so throws error if not found
 try:
@@ -15,8 +16,8 @@ client = MongoClient(MONGO_URI)
 db = client.getAddress.postcodes
 
 
-# 2. Request Postcode record from DB:
 def lookup_postcode_in_db(postcode):
+    ''' Request Postcode record from DB '''
     # Attempt to find cached postcode details in DB
     record = db.find_one({"postcode": postcode})
     # Check if record found
@@ -34,8 +35,8 @@ def lookup_postcode_in_db(postcode):
         print_addresses(record)
 
 
-# Query getAddress API for current record (format & sorted = true)
 def query_api_for_addresses(postcode):
+    ''' Query getAddress API for current record (format & sorted = true) '''
     print(f"Calling API for {postcode}")
 
     endpoint = f"https://api.getAddress.io/find/{postcode}"
@@ -62,6 +63,10 @@ def query_api_for_addresses(postcode):
 
 
 def cache_response_to_db(response, postcode):
+    ''' Takes API response,
+        amends postcode and timestamp to record,
+        inserts into DB
+    '''
     # Add postcode and timestamp to record
     response["postcode"] = postcode
     response["cached_date"] = datetime.utcnow()
@@ -69,8 +74,12 @@ def cache_response_to_db(response, postcode):
     db.insert_one(response)
 
 
-# 3. Print_Addresses() takes a dict of format: {addresses:[*address*:[*lines*]]}
 def print_addresses(record):
+    ''' Takes a dict of format: {addresses: [*address*: [*lines*]]}
+
+        Iterates and prints lines in address,
+        with blank space between addresses
+    '''
     if not record["addresses"]:
         print("No addresses in record")
     for address in record["addresses"]:
@@ -81,14 +90,30 @@ def print_addresses(record):
         print()
 
 
+def parse_postcode(postcode):
+    ''' Changes to UPPERCASE and converts postcode to format: AA99 9AA '''
+    postcode = postcode.replace(' ', '').upper()
+    postcode = postcode[:-3] + " " + postcode[-3:]
+    return postcode
+
+
+def validate_postcode(postcode):
+    ''' Checks if input matches expected patterns for postcodes '''
+    if re.match(r"^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$", postcode):
+        return True
+    else:
+        print(f"'{postcode}' does not appear to be a valid postcode")
+        return False
+
+
 # Loops around and asks user to provide Postcode to look up, or (q)uit
 if __name__ == '__main__':
     while True:
-        # print()
-        postcode = input("Enter postcode to lookup, or (q)uit: ")
+        postcode = input("Enter postcode to lookup, or (q)uit: ").strip()
         # Checking if user wants to quit
         if postcode.lower() in ["q", "quit"]:
             quit()
+        postcode = parse_postcode(postcode)
         # Checking if postcode isn't blank, loops back if is
-        if postcode:
-            lookup_postcode_in_db(postcode.upper())
+        if validate_postcode(postcode):
+            lookup_postcode_in_db(postcode)
