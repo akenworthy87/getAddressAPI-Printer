@@ -49,4 +49,10 @@ The Following EnVars will need setting:
 | Key | Description |
 |---|---|
 APIKEY | Your getaddress.io API Key (<https://getaddress.io/CreateAccount>)
-MONGODB_URI | MongoDB connection string
+MONGODB_URI | MongoDB Atlas connection string
+
+### Requirements
+
+Install python dependencies with:
+
+    pip3 install -r requirements.txt
